@@ -15,7 +15,7 @@ MODEL,
 pages[i].slice(0, 8000)
 );
 const page = pdf.getPages()[i];
-pdf.catalog.addOutline(Pg ${i + 1}: ${summary}, page.ref);
+  pdf.catalog.addOutline(`Pg ${i + 1}: ${summary}`, page.ref);
 }
 
 pdf.setTitle("Remediated PDF");
