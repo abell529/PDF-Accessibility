@@ -22,6 +22,7 @@ Summaries & metadata	gpt-4.1-nano	≤ 35-word summaries, title, keywords
 
 Requirements on your machine
 Node 20+ and npm
+Runs on any OS where Node 20+ is available (Ubuntu, Debian, macOS, Windows, etc.)
 
 Internet access for the OpenAI API
 
