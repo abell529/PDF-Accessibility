@@ -15,30 +15,20 @@ program
 .option("--tags", "generate tag tree")
 .option("--summaries","generate summaries & bookmarks")
 .action(async opts => {
-const { in: input, out: output, alt, tags, summaries } = opts;
-if (!alt && !tags && !summaries) {
-console.error("Nothing to do — add --alt, --tags or --summaries.");
-process.exit(1);
-}
+  const { in: input, out: output, alt, tags, summaries } = opts;
+  if (!alt && !tags && !summaries) {
+    console.error("Nothing to do — add --alt, --tags or --summaries.");
+    process.exit(1);
+  }
 
-let pdfBytes = await fs.readFile(input);
+  let pdfBytes = await fs.readFile(input);
 
-if (alt)       pdfBytes = await addAltText(pdfBytes);
-if (tags)      pdfBytes = await addTagTree(pdfBytes);
-if (summaries) pdfBytes = await addSummaries(pdfBytes);
+  if (alt)       pdfBytes = await addAltText(pdfBytes);
+  if (tags)      pdfBytes = await addTagTree(pdfBytes);
+  if (summaries) pdfBytes = await addSummaries(pdfBytes);
 
-await fs.writeFile(output, pdfBytes);
-console.log("✅  Remediated PDF saved to", output);
-
-
-let pdfBytes = await fs.readFile(input);
-
-if (alt)       pdfBytes = await addAltText(pdfBytes);
-if (tags)      pdfBytes = await addTagTree(pdfBytes);
-if (summaries) pdfBytes = await addSummaries(pdfBytes);
-
-await fs.writeFile(output, pdfBytes);
-console.log("✅  Remediated PDF saved to", output);
+  await fs.writeFile(output, pdfBytes);
+  console.log("✅  Remediated PDF saved to", output);
 
 });
 
