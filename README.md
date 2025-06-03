@@ -24,6 +24,9 @@ Requirements on your machine
 Node 20+ and npm
 Runs on any OS where Node 20+ is available (Ubuntu, Debian, macOS, Windows, etc.)
 
+**Note:** The PDF.js library we rely on targets Node 22+. This project imports
+its `legacy` build so everything works on Node 20.
+
 Internet access for the OpenAI API
 
 OPENAI_API_KEY in .env (billing-enabled)
