@@ -30,4 +30,25 @@ OPENAI_API_KEY in .env (billing-enabled)
 
 (Optional) Adobe PDF Accessibility API keys if you later extend the workflow.
 
+## Web server setup
+
+These files include a small PHP front end so the tool can run behind an
+Apache web server on Ubuntu. The PHP page uploads your PDF, then calls the
+CLI to generate the remediated version.
+
+1. Install dependencies:
+   ```bash
+   sudo apt update
+   sudo apt install apache2 php nodejs npm
+   ```
+2. Clone this repository somewhere Apache can read (e.g. `/var/www/html/pdf-remediation`).
+3. In the repository directory run:
+   ```bash
+   cp .env.example .env   # add your OpenAI key
+   npm install
+   ```
+4. Ensure the `web/` directory is served by Apache. If the repository lives
+   in `/var/www/html/pdf-remediation`, you can access `http://your-server/pdf-remediation/web/`.
+5. Upload a PDF using the form and download the remediated file when processing completes.
+
 MIT License · © 2025
