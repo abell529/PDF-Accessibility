@@ -41,10 +41,16 @@ export function addOutline(pdf, title, pageRef) {
   let outlines;
   if (outlinesRef instanceof PDFRef) {
     outlines = ctx.lookup(outlinesRef, PDFDict);
+  } else if (outlinesRef instanceof PDFDict) {
+    outlines = outlinesRef;
   }
   if (!outlines) {
     outlines = ctx.obj({ Type: "Outlines", Count: 0 });
     outlinesRef = ctx.register(outlines);
+    cat.set(PDFName.of("Outlines"), outlinesRef);
+  } else if (!(outlinesRef instanceof PDFRef)) {
+    // Ensure outlines dictionary has a reference
+    outlinesRef = ctx.getObjectRef(outlines) || ctx.register(outlines);
     cat.set(PDFName.of("Outlines"), outlinesRef);
   }
 
@@ -56,13 +62,28 @@ export function addOutline(pdf, title, pageRef) {
   });
   const itemRef = ctx.register(item);
 
-  const first = outlines.lookupMaybe(PDFName.of("First"), PDFRef);
+  const first = outlines.lookupMaybe(
+    PDFName.of("First"),
+    PDFRef,
+    PDFDict,
+  );
   if (!first) {
     outlines.set(PDFName.of("First"), itemRef);
     outlines.set(PDFName.of("Last"), itemRef);
   } else {
-    const lastRef = outlines.lookup(PDFName.of("Last"), PDFRef);
-    const last = ctx.lookup(lastRef, PDFDict);
+    let last = outlines.lookup(
+      PDFName.of("Last"),
+      PDFRef,
+      PDFDict,
+    );
+    let lastRef;
+    if (last instanceof PDFRef) {
+      lastRef = last;
+      last = ctx.lookup(lastRef, PDFDict);
+    } else {
+      lastRef = ctx.getObjectRef(last) || ctx.register(last);
+      outlines.set(PDFName.of("Last"), lastRef);
+    }
     last.set(PDFName.of("Next"), itemRef);
     item.set(PDFName.of("Prev"), lastRef);
     outlines.set(PDFName.of("Last"), itemRef);
