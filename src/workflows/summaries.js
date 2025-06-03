@@ -1,5 +1,5 @@
 import { PDFDocument } from "pdf-lib";
-import { extractTextPerPage } from "../pdf.js";
+import { extractTextPerPage, addOutline } from "../pdf.js";
 import { chat } from "../ai.js";
 
 const MODEL = "gpt-4.1-nano";
@@ -15,7 +15,7 @@ MODEL,
 pages[i].slice(0, 8000)
 );
 const page = pdf.getPages()[i];
-  pdf.catalog.addOutline(`Pg ${i + 1}: ${summary}`, page.ref);
+  addOutline(pdf, `Pg ${i + 1}: ${summary}`, page.ref);
 }
 
 pdf.setTitle("Remediated PDF");
