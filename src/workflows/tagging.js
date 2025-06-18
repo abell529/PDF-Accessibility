@@ -43,8 +43,10 @@ export async function addTagTree(pdfBytes) {
         const alt = obj.get(PDFName.of("Alt"));
         if (!alt) continue;
 
+
         const objr = ctx.obj({ Type: PDFName.of("OBJR"), Obj: ref });
         const objrRef = ctx.register(objr);
+
 
         const fig = ctx.obj({
           Type: "StructElem",
@@ -52,7 +54,9 @@ export async function addTagTree(pdfBytes) {
           Alt: alt,
           Pg: page.ref,
           P: pageRef,
+
           K: objrRef,
+
         });
         pageKids.push(ctx.register(fig));
       }
