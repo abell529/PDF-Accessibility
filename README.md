@@ -1,8 +1,11 @@
 # PDF-Remediation
 
 CLI tool that turns any PDF into a more accessible version
-by adding alt-text, OCR text, a basic tag tree, bookmarks,
-and metadata including language
+
+by adding alt-text, OCR text, a basic tag tree that links
+images as tagged figures, bookmarks, and metadata including
+language
+
 — all powered by the OpenAI API.
 
 ```bash
@@ -19,7 +22,9 @@ What it does
 Stage	Model	Result
 Alt-text	gpt-4o-mini (vision)	Adds /Alt text to every image
 OCR	gpt-4o-mini (vision)	Extracts text from page images
-Tag tree & bookmarks    gpt-4.1-nano    Detects H1/H2… → bookmarks and basic tags
+
+Tag tree & bookmarks    gpt-4.1-nano    Detects H1/H2… → bookmarks and basic tags; images with alt text become figures
+
 Summaries & metadata	gpt-4.1-nano	≤ 35-word summaries, title, keywords, language
 
 Requirements on your machine
