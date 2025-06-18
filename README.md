@@ -19,7 +19,7 @@ What it does
 Stage	Model	Result
 Alt-text	gpt-4o-mini (vision)	Adds /Alt text to every image
 OCR	gpt-4o-mini (vision)	Extracts text from page images
-Tag tree & bookmarks	gpt-4.1-nano	Detects H1/H2… → bookmarks
+Tag tree & bookmarks    gpt-4.1-nano    Detects H1/H2… → bookmarks and basic tags
 Summaries & metadata	gpt-4.1-nano	≤ 35-word summaries, title, keywords, language
 
 Requirements on your machine
