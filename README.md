@@ -1,7 +1,9 @@
 # PDF-Remediation
 
-CLI tool that turns any PDF into a more accessible version  
-by adding alt-text, a tag tree, page bookmarks, and metadata  
+CLI tool that turns any PDF into a more accessible version
+by adding alt-text, OCR text, a basic tag tree that links
+images as tagged figures, bookmarks, and metadata including
+language
 — all powered by the OpenAI API.
 
 ```bash
@@ -11,14 +13,15 @@ npm install                     # Codex already ran this once
 node src/cli.js remediate \
      --in sample.pdf \
      --out sample_a11y.pdf \
-     --alt --tags --summaries
+     --alt --ocr --tags --summaries
 ```
 
 What it does
 Stage	Model	Result
 Alt-text	gpt-4o-mini (vision)	Adds /Alt text to every image
-Tag tree & bookmarks	gpt-4.1-nano	Detects H1/H2/… → bookmarks
-Summaries & metadata	gpt-4.1-nano	≤ 35-word summaries, title, keywords
+OCR	gpt-4o-mini (vision)	Extracts text from page images
+Tag tree & bookmarks    gpt-4.1-nano    Detects H1/H2… → bookmarks and basic tags; images with alt text become figures
+Summaries & metadata	gpt-4.1-nano	≤ 35-word summaries, title, keywords, language
 
 Requirements on your machine
 Node 20+ and npm

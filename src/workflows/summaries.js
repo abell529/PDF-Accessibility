@@ -21,6 +21,7 @@ const page = pdf.getPages()[i];
 pdf.setTitle("Remediated PDF");
 pdf.setSubject("Accessibility-enhanced PDF");
 pdf.setKeywords(["accessibility", "alt-text", "PDF remediation"]);
+pdf.setLanguage("en-US");
 
 return pdf.save();
 }
