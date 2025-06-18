@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName } from "pdf-lib";
+import { PDFDocument, PDFName, PDFDict } from "pdf-lib";
 import { extractTextPerPage, addOutline } from "../pdf.js";
 import { chat } from "../ai.js";
 
@@ -28,9 +28,30 @@ export async function addTagTree(pdfBytes) {
 
     const page = pdf.getPages()[i];
     page.node.set(PDFName.of("StructParents"), ctx.obj(i));
-    const pageElem = ctx.obj({ Type: "StructElem", S: PDFName.of("Div"), P: rootRef });
+    const pageElem = ctx.obj({ Type: "StructElem", S: PDFName.of("Div"), Pg: page.ref, P: rootRef });
+    const pageKids = ctx.obj([]);
+    pageElem.set(PDFName.of("K"), pageKids);
     const pageRef = ctx.register(pageElem);
     kids.push(pageRef);
+
+    const res = page.node.Resources();
+    const xo = res?.lookup("XObject");
+    if (xo) {
+      for (const [name, ref] of xo.entries()) {
+        const obj = ctx.lookup(ref, PDFDict);
+        if (obj.get("Subtype")?.name !== "Image") continue;
+        const alt = obj.get(PDFName.of("Alt"));
+        if (!alt) continue;
+        const fig = ctx.obj({
+          Type: "StructElem",
+          S: PDFName.of("Figure"),
+          Alt: alt,
+          Pg: page.ref,
+          P: pageRef,
+        });
+        pageKids.push(ctx.register(fig));
+      }
+    }
 
     roles
       .filter(r => r.role === "H1" || r.role === "H2")
