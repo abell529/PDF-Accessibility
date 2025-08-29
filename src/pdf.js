@@ -96,3 +96,16 @@ export function addOutline(pdf, title, pageRef) {
 
   return itemRef;
 }
+
+/** Set the document title and embed it in XMP metadata. */
+export function setDocumentTitle(pdf, title) {
+  pdf.setTitle(title, { showInWindowTitleBar: true });
+
+  const xmp = `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>\n<x:xmpmeta xmlns:x="adobe:ns:meta/">\n <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">\n   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">${title}</rdf:li></rdf:Alt></dc:title>\n  </rdf:Description>\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end="w"?>`;
+
+  const metadata = pdf.context.stream(xmp, {
+    Type: "Metadata",
+    Subtype: "XML",
+  });
+  pdf.catalog.set(PDFName.of("Metadata"), pdf.context.register(metadata));
+}
