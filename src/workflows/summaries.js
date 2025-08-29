@@ -1,5 +1,5 @@
 import { PDFDocument } from "pdf-lib";
-import { extractTextPerPage, addOutline } from "../pdf.js";
+import { extractTextPerPage, addOutline, setDocumentTitle } from "../pdf.js";
 import { chat } from "../ai.js";
 
 const MODEL = "gpt-4.1-nano";
@@ -18,7 +18,7 @@ const page = pdf.getPages()[i];
   addOutline(pdf, `Pg ${i + 1}: ${summary}`, page.ref);
 }
 
-pdf.setTitle("Remediated PDF");
+setDocumentTitle(pdf, "Remediated PDF");
 pdf.setSubject("Accessibility-enhanced PDF");
 pdf.setKeywords(["accessibility", "alt-text", "PDF remediation"]);
 pdf.setLanguage("en-US");
