@@ -5,6 +5,7 @@ import {
   PDFRef,
   PDFHexString,
   PDFNumber,
+  PDFStream,
 } from "pdf-lib";
 // The default `pdfjs-dist` build targets modern runtimes and relies on
 // `Promise.withResolvers`, which is only available in Node 22+.
@@ -26,10 +27,10 @@ return out;
 
 /** Low-level helper to attach /Alt text to an image XObject. */
 export function embedAltText(page, name, alt) {
-const res = page.node.Resources();
-const xo = res?.lookup("XObject");
-const ref = xo?.lookup(name);
-if (ref) ref.set("Alt", page.doc.context.obj(alt));
+  const res = page.node.Resources();
+  const xo = res?.lookup(PDFName.of("XObject"), PDFDict);
+  const img = xo?.lookup(name, PDFStream);
+  if (img) img.dict.set(PDFName.of("Alt"), page.doc.context.obj(alt));
 }
 
 /** Create a top-level bookmark linked to the given page. */
