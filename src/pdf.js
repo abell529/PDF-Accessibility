@@ -146,6 +146,16 @@ function injectTitleFragments(metadataXml, escapedTitle) {
   return updated;
 }
 
+function injectPdfUaIdentifier(metadataXml) {
+  const pdfuaBlock = `   <pdfuaid:part>1</pdfuaid:part>`;
+
+  if (/<pdfuaid:part[\s\S]*?<\/pdfuaid:part>/i.test(metadataXml)) {
+    return metadataXml.replace(/<pdfuaid:part[\s\S]*?<\/pdfuaid:part>/i, pdfuaBlock);
+  }
+
+  return metadataXml.replace(/(<rdf:Description[^>]*>)/i, `$1\n${pdfuaBlock}`);
+}
+
 function buildXmpMetadata(title) {
   const escapedTitle = escapeXml(title);
 
@@ -154,13 +164,14 @@ function buildXmpMetadata(title) {
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<x:xmpmeta xmlns:x="adobe:ns:meta/">\n` +
     ` <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n` +
-    `  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">\n` +
+    `  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">\n` +
     `   <dc:title>\n` +
     `    <rdf:Alt>\n` +
     `     <rdf:li xml:lang="x-default">${escapedTitle}</rdf:li>\n` +
     `    </rdf:Alt>\n` +
     `   </dc:title>\n` +
     `   <pdf:Title>${escapedTitle}</pdf:Title>\n` +
+    `   <pdfuaid:part>1</pdfuaid:part>\n` +
     `  </rdf:Description>\n` +
     ` </rdf:RDF>\n` +
     `</x:xmpmeta>\n` +
@@ -192,8 +203,14 @@ function updateExistingXmp(metadataStream, escapedTitle) {
     "pdf",
     "http://ns.adobe.com/pdf/1.3/",
   );
+  updated = ensureNamespace(
+    updated,
+    "pdfuaid",
+    "http://www.aiim.org/pdfua/ns/id/",
+  );
 
   updated = injectTitleFragments(updated, escapedTitle);
+  updated = injectPdfUaIdentifier(updated);
   return updated;
 }
 
