@@ -97,13 +97,126 @@ export function addOutline(pdf, title, pageRef) {
   return itemRef;
 }
 
+function escapeXml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function ensureNamespace(descriptionTag, prefix, uri) {
+  if (new RegExp(`xmlns:${prefix}=`).test(descriptionTag)) return descriptionTag;
+  return descriptionTag.replace(
+    /<rdf:Description([^>]*)>/,
+    (match, attrs) => `<rdf:Description${attrs} xmlns:${prefix}="${uri}">`,
+  );
+}
+
+function injectTitleFragments(metadataXml, escapedTitle) {
+  const dcBlock =
+    `   <dc:title>\n` +
+    `    <rdf:Alt>\n` +
+    `     <rdf:li xml:lang="x-default">${escapedTitle}</rdf:li>\n` +
+    `    </rdf:Alt>\n` +
+    `   </dc:title>`;
+  const pdfBlock = `   <pdf:Title>${escapedTitle}</pdf:Title>`;
+
+  let updated = metadataXml;
+
+  if (/<dc:title[\s\S]*?<\/dc:title>/i.test(updated)) {
+    updated = updated.replace(/<dc:title[\s\S]*?<\/dc:title>/i, dcBlock);
+  } else {
+    updated = updated.replace(
+      /(<rdf:Description[^>]*>)/i,
+      `$1\n${dcBlock}`,
+    );
+  }
+
+  if (/<pdf:Title[\s\S]*?<\/pdf:Title>/i.test(updated)) {
+    updated = updated.replace(/<pdf:Title[\s\S]*?<\/pdf:Title>/i, pdfBlock);
+  } else {
+    updated = updated.replace(
+      /(<dc:title[\s\S]*?<\/dc:title>)/i,
+      `$1\n${pdfBlock}`,
+    );
+  }
+
+  return updated;
+}
+
+function buildXmpMetadata(title) {
+  const escapedTitle = escapeXml(title);
+
+  return (
+    `<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>\n` +
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<x:xmpmeta xmlns:x="adobe:ns:meta/">\n` +
+    ` <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n` +
+    `  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">\n` +
+    `   <dc:title>\n` +
+    `    <rdf:Alt>\n` +
+    `     <rdf:li xml:lang="x-default">${escapedTitle}</rdf:li>\n` +
+    `    </rdf:Alt>\n` +
+    `   </dc:title>\n` +
+    `   <pdf:Title>${escapedTitle}</pdf:Title>\n` +
+    `  </rdf:Description>\n` +
+    ` </rdf:RDF>\n` +
+    `</x:xmpmeta>\n` +
+    `<?xpacket end="w"?>`
+  );
+}
+
+function updateExistingXmp(metadataStream, escapedTitle) {
+  const contents = metadataStream?.getContents?.();
+  if (!contents) return undefined;
+
+  let xml;
+  try {
+    xml = Buffer.from(contents).toString("utf8");
+  } catch (err) {
+    return undefined;
+  }
+
+  if (!xml.includes("<rdf:RDF")) return undefined;
+
+  let updated = xml;
+  updated = ensureNamespace(
+    updated,
+    "dc",
+    "http://purl.org/dc/elements/1.1/",
+  );
+  updated = ensureNamespace(
+    updated,
+    "pdf",
+    "http://ns.adobe.com/pdf/1.3/",
+  );
+
+  updated = injectTitleFragments(updated, escapedTitle);
+  return updated;
+}
+
 /** Set the document title and embed it in XMP metadata. */
-export function setDocumentTitle(pdf, title) {
+export function setDocumentTitle(pdf, rawTitle) {
+  const title = (rawTitle ?? "").trim() || "Untitled Document";
   pdf.setTitle(title, { showInWindowTitleBar: true });
 
-  const xmp = `<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>\n<?xml version="1.0" encoding="UTF-8"?>\n<x:xmpmeta xmlns:x="adobe:ns:meta/">\n <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">\n   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">${title}</rdf:li></rdf:Alt></dc:title>\n   <pdf:Title>${title}</pdf:Title>\n  </rdf:Description>\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end="w"?>`;
+  const escapedTitle = escapeXml(title);
+  const metadataRef = pdf.catalog.get(PDFName.of("Metadata"));
+  let metadataStream;
+  if (metadataRef instanceof PDFRef) {
+    metadataStream = pdf.context.lookup(metadataRef, PDFStream);
+  } else if (metadataRef instanceof PDFStream) {
+    metadataStream = metadataRef;
+  }
 
-  const metadata = pdf.context.stream(xmp, {
+  let xmp = updateExistingXmp(metadataStream, escapedTitle);
+  if (!xmp) {
+    xmp = buildXmpMetadata(title);
+  }
+
+  const metadata = pdf.context.stream(new TextEncoder().encode(xmp), {
     Type: "Metadata",
     Subtype: "XML",
   });
