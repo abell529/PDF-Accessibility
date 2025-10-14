@@ -4,6 +4,7 @@ import {
   PDFDocument,
   PDFHexString,
   PDFName,
+  PDFNull,
   PDFNumber,
   PDFOperator,
   PDFOperatorNames as Ops,
@@ -25,20 +26,22 @@ export async function addTagTree(pdfBytes) {
   const root = ctx.obj({ Type: "StructTreeRoot" });
   const rootKids = ctx.obj([]);
   root.set(PDFName.of("K"), rootKids);
+  const rootRef = ctx.register(root);
+  pdf.catalog.set(PDFName.of("StructTreeRoot"), rootRef);
+  pdf.catalog.set(PDFName.of("MarkInfo"), ctx.obj({ Marked: true }));
+
+  const documentKids = ctx.obj([]);
   const documentElem = ctx.obj({
     Type: "StructElem",
     S: PDFName.of("Document"),
+    P: rootRef,
+    K: documentKids,
   });
-  const documentKids = ctx.obj([]);
-  documentElem.set(PDFName.of("K"), documentKids);
   const documentRef = ctx.register(documentElem);
   rootKids.push(documentRef);
 
   const roleMap = ctx.obj({});
   const usedTags = new Set(["Document"]);
-  const rootRef = ctx.register(root);
-  pdf.catalog.set(PDFName.of("StructTreeRoot"), rootRef);
-  pdf.catalog.set(PDFName.of("MarkInfo"), ctx.obj({ Marked: true }));
 
   const font = await pdf.embedFont(StandardFonts.Helvetica);
 
@@ -94,7 +97,7 @@ export async function addTagTree(pdfBytes) {
       page,
       font,
       nextMcid: 0,
-      nextY: page.getHeight() - 48,
+      baselineY: Math.max(page.getHeight() - 72, 36),
       items: [],
       parentRefs: [],
     };
@@ -127,8 +130,9 @@ export async function addTagTree(pdfBytes) {
     ensureFontResource(ctx, page, font);
 
     const parentArray = ctx.obj([]);
-    for (const ref of pageCtx.parentRefs) {
-      parentArray.push(ref);
+    for (let idx = 0; idx < pageCtx.parentRefs.length; idx += 1) {
+      const ref = pageCtx.parentRefs[idx];
+      parentArray.set(idx, ref ?? PDFNull);
     }
     parentNums.push(PDFNumber.of(structParentIndex), parentArray);
 
@@ -139,8 +143,10 @@ export async function addTagTree(pdfBytes) {
   const parentTree = ctx.obj({ Nums: ctx.obj(parentNums) });
   root.set(PDFName.of("ParentTree"), ctx.register(parentTree));
 
-  populateRoleMap(ctx, roleMap, usedTags);
-  root.set(PDFName.of("RoleMap"), ctx.register(roleMap));
+  const hasRoleMapEntries = populateRoleMap(roleMap, usedTags);
+  if (hasRoleMapEntries) {
+    root.set(PDFName.of("RoleMap"), ctx.register(roleMap));
+  }
 
   return pdf.save();
 }
@@ -284,26 +290,22 @@ function createStructElem({ node, parentRef, parentKids, pageCtx, ctx, usedTags 
 }
 
 function buildContentItem({ node, mcid, pageCtx }) {
-  const text = node.actualText || node.text || "";
-  const lines = text
-    .split(/[\r\n]+/)
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
-  if (lines.length === 0) lines.push(" ");
+  const text = node.actualText ?? node.text ?? "";
+  const actualText = text && text.trim().length > 0 ? text : node.text || " ";
 
-  const fontSize = 12;
-  const lineHeight = 14;
+  const lines = [" "];
+
+  const fontSize = 1;
+  const lineHeight = 0;
   const x = 36;
-  const y = pageCtx.nextY;
+  const y = pageCtx.baselineY;
   const url = node.url;
-
-  pageCtx.nextY -= lineHeight * lines.length + 4;
 
   return {
     mcid,
     tag: node.tag,
     lines,
-    actualText: text,
+    actualText,
     lang: node.lang,
     x,
     y,
@@ -481,7 +483,7 @@ function addImageFigures({ ctx, page, parentRef, parentKids, usedTags }) {
   }
 }
 
-function populateRoleMap(ctx, roleMap, usedTags) {
+function populateRoleMap(roleMap, usedTags) {
   const standard = new Map([
     ["Document", "Document"],
     ["Sect", "Sect"],
@@ -514,10 +516,17 @@ function populateRoleMap(ctx, roleMap, usedTags) {
     ["H6", "H6"],
   ]);
 
+  let hasEntries = false;
   for (const tag of usedTags) {
-    const mapped = standard.get(tag) || "Span";
-    roleMap.set(PDFName.of(tag), PDFName.of(mapped));
+    const mapped = standard.get(tag);
+    if (mapped && mapped === tag) continue;
+
+    const target = mapped || "Span";
+    roleMap.set(PDFName.of(tag), PDFName.of(target));
+    hasEntries = true;
   }
+
+  return hasEntries;
 }
 
 function collectOutlineCandidates(nodes) {
