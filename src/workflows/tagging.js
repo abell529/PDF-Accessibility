@@ -413,20 +413,59 @@ function ensureFontResource(ctx, page, font) {
   page.node.set(PDFName.of("Resources"), resources);
 }
 
+function asDict(ctx, value) {
+  if (!value) return undefined;
+  if (value instanceof PDFDict) return value;
+  if (value instanceof PDFRef) {
+    const lookedUp = ctx.lookup(value);
+    return lookedUp instanceof PDFDict ? lookedUp : undefined;
+  }
+  return undefined;
+}
+
+function asStream(ctx, value) {
+  if (!value) return undefined;
+  if (value instanceof PDFStream) return value;
+  if (value instanceof PDFRef) {
+    const lookedUp = ctx.lookup(value);
+    return lookedUp instanceof PDFStream ? lookedUp : undefined;
+  }
+  return undefined;
+}
+
 function addImageFigures({ ctx, page, parentRef, parentKids, usedTags }) {
-  const res = page.node.Resources();
-  const xo = res?.lookup(PDFName.of("XObject"), PDFDict);
+  const res = asDict(ctx, page.node.Resources());
+  if (!res) return;
+
+  const xoRaw = res.lookupMaybe(PDFName.of("XObject"), PDFDict);
+  const xo = asDict(ctx, xoRaw);
   if (!xo) return;
-  for (const [name, ref] of xo.entries()) {
-    const obj = ctx.lookup(ref, PDFDict);
-    if (obj.get(PDFName.of("Subtype"))?.name !== "Image") continue;
-    const alt = obj.get(PDFName.of("Alt"));
+
+  for (const key of xo.keys()) {
+    const entry = xo.get(key);
+    const stream = asStream(ctx, entry);
+    if (!stream) continue;
+
+    const subtype = stream.dict.lookupMaybe(PDFName.of("Subtype"), PDFName);
+    if (subtype?.decodeText() !== "Image") continue;
+
+    const alt = stream.dict.lookupMaybe(
+      PDFName.of("Alt"),
+      PDFString,
+      PDFHexString,
+    );
     if (!alt) {
       // Decorative image – mark as artifact
       continue;
     }
 
-    const objr = ctx.obj({ Type: PDFName.of("OBJR"), Obj: ref });
+    let imageRef = entry instanceof PDFRef ? entry : ctx.getObjectRef(stream);
+    if (!imageRef) {
+      imageRef = ctx.register(stream);
+      xo.set(key, imageRef);
+    }
+
+    const objr = ctx.obj({ Type: PDFName.of("OBJR"), Obj: imageRef });
     const objrRef = ctx.register(objr);
     const fig = ctx.obj({
       Type: "StructElem",
