@@ -7,16 +7,16 @@ import {
   PDFNumber,
   PDFStream,
 } from "pdf-lib";
+import { fileURLToPath } from "node:url";
 // The default `pdfjs-dist` build targets modern runtimes and relies on
 // `Promise.withResolvers`, which is only available in Node 22+.
 // To remain compatible with Node 20 (as required by this project),
 // use the `legacy` build instead which includes a polyfill.
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
-const standardFontDataUrl = new URL(
-  "../node_modules/pdfjs-dist/standard_fonts/",
-  import.meta.url,
-).toString();
+const standardFontDataUrl = fileURLToPath(
+  new URL("../node_modules/pdfjs-dist/standard_fonts/", import.meta.url),
+);
 
 /** Extract plaintext for every page using pdfjs-dist. */
 export async function extractTextPerPage(pdfBytes) {
