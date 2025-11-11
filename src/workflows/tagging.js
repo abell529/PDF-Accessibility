@@ -96,7 +96,7 @@ export async function addTagTree(pdfBytes) {
     const pageCtx = {
       page,
       font,
-      nextMcid: 0,
+      nextMcid: findMaxExistingMcid(ctx, page) + 1,
       baselineY: Math.max(page.getHeight() - 72, 36),
       items: [],
       parentRefs: [],
@@ -149,6 +149,53 @@ export async function addTagTree(pdfBytes) {
   }
 
   return pdf.save();
+}
+
+function gatherContentStreams(ctx, contents) {
+  if (!contents) return [];
+
+  if (contents instanceof PDFArray) {
+    const streams = [];
+    for (let idx = 0; idx < contents.size(); idx += 1) {
+      const value = contents.get(idx);
+      streams.push(...gatherContentStreams(ctx, value));
+    }
+    return streams;
+  }
+
+  const stream = asStream(ctx, contents);
+  return stream ? [stream] : [];
+}
+
+function findMaxExistingMcid(ctx, page) {
+  const streams = gatherContentStreams(ctx, page.node.Contents());
+  if (streams.length === 0) return -1;
+
+  let max = -1;
+  const decoder = new TextDecoder("latin1");
+
+  for (const stream of streams) {
+    const contents = stream.getContents();
+    if (!contents) continue;
+
+    let text;
+    try {
+      text = decoder.decode(contents);
+    } catch {
+      continue;
+    }
+
+    const re = /\/MCID\s+(\d+)/g;
+    let match;
+    while ((match = re.exec(text))) {
+      const value = Number.parseInt(match[1], 10);
+      if (!Number.isNaN(value) && value > max) {
+        max = value;
+      }
+    }
+  }
+
+  return max;
 }
 
 function normaliseNodes(nodes) {
