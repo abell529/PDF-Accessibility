@@ -17,6 +17,7 @@ import { extractTextPerPage, addOutline } from "../pdf.js";
 import { chat } from "../ai.js";
 
 const MODEL = "gpt-4.1-nano"; // cheapest text tier
+const latin1Decoder = new TextDecoder("latin1");
 
 export async function addTagTree(pdfBytes) {
   const pdf = await PDFDocument.load(pdfBytes);
@@ -172,18 +173,10 @@ function findMaxExistingMcid(ctx, page) {
   if (streams.length === 0) return -1;
 
   let max = -1;
-  const decoder = new TextDecoder("latin1");
 
   for (const stream of streams) {
-    const contents = stream.getContents();
-    if (!contents) continue;
-
-    let text;
-    try {
-      text = decoder.decode(contents);
-    } catch {
-      continue;
-    }
+    const text = decodeStream(stream);
+    if (!text) continue;
 
     const re = /\/MCID\s+(\d+)/g;
     let match;
@@ -418,7 +411,7 @@ function buildAccessibleContentStream(ctx, pageCtx) {
 }
 
 function wrapPageContentWithArtifact(ctx, page, accessibleStreamRef) {
-  const existing = page.node.Contents();
+  const baseRefs = collectBaseContentRefs(ctx, page);
   const start = ctx.contentStream([
     PDFOperator.of(Ops.BeginMarkedContent, [PDFName.of("Artifact")]),
   ]);
@@ -426,25 +419,7 @@ function wrapPageContentWithArtifact(ctx, page, accessibleStreamRef) {
   const startRef = ctx.register(start);
   const endRef = ctx.register(end);
 
-  const refs = [];
-  refs.push(startRef);
-
-  if (existing instanceof PDFArray) {
-    for (let idx = 0; idx < existing.size(); idx += 1) {
-      const value = existing.get(idx);
-      if (value instanceof PDFRef) {
-        refs.push(value);
-      } else if (value instanceof PDFStream) {
-        refs.push(ctx.register(value));
-      }
-    }
-  } else if (existing instanceof PDFRef) {
-    refs.push(existing);
-  } else if (existing instanceof PDFStream) {
-    refs.push(ctx.register(existing));
-  }
-
-  refs.push(endRef);
+  const refs = [startRef, ...baseRefs, endRef];
   if (accessibleStreamRef) refs.push(accessibleStreamRef);
 
   const arr = ctx.obj(refs);
@@ -466,6 +441,68 @@ function ensureFontResource(ctx, page, font) {
 
   if (!existingResources) {
     page.node.set(PDFName.of("Resources"), resources);
+  }
+}
+
+function collectBaseContentRefs(ctx, page) {
+  const existing = page.node.Contents();
+  if (!existing) return [];
+
+  const entries = [];
+  if (existing instanceof PDFArray) {
+    for (let idx = 0; idx < existing.size(); idx += 1) {
+      entries.push(existing.get(idx));
+    }
+  } else {
+    entries.push(existing);
+  }
+
+  const refs = [];
+
+  for (const entry of entries) {
+    const stream = asStream(ctx, entry);
+    if (!stream) {
+      if (entry instanceof PDFRef) refs.push(entry);
+      continue;
+    }
+
+    const text = decodeStream(stream)?.trim();
+    if (text && shouldSkipContentStream(text)) {
+      continue;
+    }
+
+    const ref = ensureRef(ctx, entry, stream);
+    if (ref) refs.push(ref);
+  }
+
+  return refs;
+}
+
+function ensureRef(ctx, value, stream) {
+  if (value instanceof PDFRef) return value;
+  if (stream) {
+    const existingRef = ctx.getObjectRef?.(stream);
+    if (existingRef) return existingRef;
+    return ctx.register(stream);
+  }
+  return undefined;
+}
+
+function shouldSkipContentStream(text) {
+  if (text === "/Artifact BMC" || text === "EMC") return true;
+  if (text.includes("/ActualText") && text.includes("BDC") && text.includes("Tr 3")) {
+    return true;
+  }
+  return false;
+}
+
+function decodeStream(stream) {
+  const contents = stream.getContents();
+  if (!contents) return undefined;
+  try {
+    return latin1Decoder.decode(contents);
+  } catch {
+    return undefined;
   }
 }
 
