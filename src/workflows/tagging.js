@@ -405,14 +405,21 @@ function wrapPageContentWithArtifact(ctx, page, accessibleStreamRef) {
 }
 
 function ensureFontResource(ctx, page, font) {
-  const resources = page.node.Resources() || ctx.obj({});
-  let fonts = resources.lookup(PDFName.of("Font"), PDFDict);
+  const existingResources = asDict(ctx, page.node.Resources());
+  const resources = existingResources ?? ctx.obj({});
+
+  let fonts = resources.lookupMaybe(PDFName.of("Font"), PDFDict);
+  fonts = asDict(ctx, fonts);
   if (!fonts) {
     fonts = ctx.obj({});
     resources.set(PDFName.of("Font"), fonts);
   }
+
   fonts.set(PDFName.of(font.name), font.ref);
-  page.node.set(PDFName.of("Resources"), resources);
+
+  if (!existingResources) {
+    page.node.set(PDFName.of("Resources"), resources);
+  }
 }
 
 function asDict(ctx, value) {
